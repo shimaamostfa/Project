@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+import rospy
+import cv2
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+
+def cam_streamer():
+    rospy.init_node("cam_streamer")
+    pub = rospy.Publisher("/cam_streame",Image, queue_size =1000)
+    bridge = CvBridge()
+
+    cap = cv2.VideoCapture("/home/shaimaa/Downloads/MOT16-14-raw.webm")
+    if not cap.isOpened():
+        rospy.logerr("Failed")
+        return
+    frame_id =0 
+    rate = rospy.Rate(1)  # in secs
+    while not rospy.is_shutdown():
+        ret, frame = cap.read()
+
+        if not ret :
+            rospy.logerr("video is finished")
+            break
+
+        ros_image = bridge.cv2_to_imgmsg(frame, encoding="bgr8")
+        ros_image.header.stamp = rospy.Time.now()
+        ros_image.header.frame_id = str(frame_id)
+        frame_id = frame_id + 1
+        rospy.loginfo(f"Published frame {frame_id}")
+        rate.sleep()
+    cap.release()
+
+if __name__=="__main__":
+    try:
+        cam_streamer()
+    except rospy.ROSInterruptException:
+        pass

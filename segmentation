@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+
+import rospy
+import cv2
+import torch
+import numpy as np
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+from torchvision import models, transforms
+
+# Initialize ROS and OpenCV bridge
+bridge = CvBridge()
+
+# Load the DeepLabV3+ model (pre-trained on COCO or ADE20K dataset)
+model = models.segmentation.deeplabv3_resnet101(pretrained=True).eval().cuda()
+
+# Define color map for segmentation visualization
+COLORMAP = np.random.randint(0, 255, (21, 3), dtype=np.uint8)  # Assuming 21 classes
+
+# Preprocessing function
+def preprocess_image(image):
+    transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((512, 512)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    return transform(image).unsqueeze(0).cuda()
+
+# Segmentation callback function
+def segmentation_callback(image_msg):
+    global bridge, model
+    
+    # Extracting image info
+    image_msg_header = image_msg.header
+    frame_id = image_msg_header.frame_id
+    
+    # Convert ROS Image to OpenCV format
+    frame = bridge.imgmsg_to_cv2(image_msg, desired_encoding="bgr8")
+    
+    # Preprocess the image
+    input_tensor = preprocess_image(frame)
+    
+    # Run DeepLabV3+ model
+    with torch.no_grad():
+        output = model(input_tensor)['out'][0]
+    
+    # Get predicted segmentation map
+    segmentation_map = torch.argmax(output, dim=0).byte().cpu().numpy()
+    
+    # Convert segmentation map to color
+    segmentation_colored = COLORMAP[segmentation_map]
+    segmentation_colored = cv2.resize(segmentation_colored, (frame.shape[1], frame.shape[0]))
+    
+    # Overlay segmentation on original frame
+    overlay = cv2.addWeighted(frame, 0.5, segmentation_colored, 0.5, 0)
+    
+    # Display the segmentation result
+    cv2.imshow("Semantic Segmentation", overlay)
+    cv2.waitKey(1)
+
+# Main function
+if __name__ == "__main__":
+    rospy.init_node("semantic_segmentation_node")
+    rospy.Subscriber("/cam_stream", Image, segmentation_callback)
+    rospy.loginfo("Semantic Segmentation Node Initialized and Subscribing to /cam_stream")
+    rospy.spin()

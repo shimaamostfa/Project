@@ -13,7 +13,7 @@ class SemanticSegmentationNode:
        
         rospy.init_node('semantic_segmentation', anonymous=True)
 
-        self.image_sub = rospy.Subscriber('/camera/image_raw', Image, self.image_callback)
+        self.image_sub = rospy.Subscriber('/cam_streame/image_raw', Image, self.image_callback)
 
         self.image_pub = rospy.Publisher('/segmented/image', Image, queue_size=10)
 

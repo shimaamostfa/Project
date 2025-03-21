@@ -3,7 +3,9 @@
 import rospy
 import cv2
 from sensor_msgs.msg import Image
+from perception_stack_pkg.msg import BoundingBox, Detectionlist
 from ultralytics import YOLO
+from cv_bridge import CvBridge
 
 bridge = CvBridge()
 detection_model = YOLO("/home/shaimaa/catkin_ws/src/perception_stack_pkg/scripts/yolo11n.pt")
@@ -21,21 +23,31 @@ def detection_callback(image_msg):
 
     detection_results = detection_model(frame)[0]
     rospy.loginfo(f"Detection is running on frame {msg_fram_id} ! {frame.shape}")
+    detection_list_msg = Detectionlist()
+    detection_list_msg.header = image_msg_header
 
     for box in detection_results.boxes;
         x1 , y1 , x2 , y2 = map(int , box.xyxy[0])
         conf = float (box.conf[0])
         class_id = int(box.cls[0])
         class_name = detection_model.names[class_id]
-
+        bbox = BoundingBox()
+        bbox.x1 = x1
+        bbox.x2 = x2
+        bbox.y1 = y1
+        bbox.y2 = y2
+        bbox.confidence = conf
+        bbox.class_name = class_name
+        detection_list_msg.detections.append(bbox)
         cv2.rectangle(frame, (x1,y1),(x2,y2), (0,255,0),2)
         cv2.putText(frame ,f"{class_name}", (x1,y1-10), cv2.FONT_HERSHEY_SIMPLEX,05,(255,0,0))
+    object_detection_publisher.publish(detection_list_msg)
     cv2.imshow("2D Detection", frame)
     cv2.waitkey(1)
     if __name__=="__main__":
         cam_topic = "/cam_stream"
         node_name = "object_detector_2D"
-
+        object_detection_publisher = rospy.Publisher("/2D_object_list", Detectionlist,queue_size = 1000)
         rospy.init_node(f"{node_name}")
         rospy.Subscriber(f"{cam_topic}", Image, detection_callback)
         rospy.loginfo(f"{node_name} is created and is subscribing to topic {cam_topic}")

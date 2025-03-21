@@ -19,9 +19,19 @@ def detection_callback(image_msg):
     #decoding msg payload back to image
     frame =bridge.imgmsg_to_cv2(image_msg, desired_encoding="bgr8")
 
-    detection_results = detection_model(frame)
-    rospy.loginfo(f"Detection is running ! {frame.shape}")
+    detection_results = detection_model(frame)[0]
+    rospy.loginfo(f"Detection is running on frame {msg_fram_id} ! {frame.shape}")
 
+    for box in detection_results.boxes;
+        x1 , y1 , x2 , y2 = map(int , box.xyxy[0])
+        conf = float (box.conf[0])
+        class_id = int(box.cls[0])
+        class_name = detection_model.names[class_id]
+
+        cv2.rectangle(frame, (x1,y1),(x2,y2), (0,255,0),2)
+        cv2.putText(frame ,f"{class_name}", (x1,y1-10), cv2.FONT_HERSHEY_SIMPLEX,05,(255,0,0))
+    cv2.imshow("2D Detection", frame)
+    cv2.waitkey(1)
     if __name__=="__main__":
         cam_topic = "/cam_stream"
         node_name = "object_detector_2D"

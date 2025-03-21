@@ -10,25 +10,20 @@ from torchvision.models.segmentation import deeplabv3_resnet50
 
 class SemanticSegmentationNode:
     def __init__(self):
-        # ✅ تهيئة العقدة
+       
         rospy.init_node('semantic_segmentation', anonymous=True)
 
-        # ✅ الاشتراك في توبيك الفيديو `/camera/image_raw`
         self.image_sub = rospy.Subscriber('/camera/image_raw', Image, self.image_callback)
 
-        # ✅ نشر الصورة المصنفة إلى التوبيك `/segmented/image`
         self.image_pub = rospy.Publisher('/segmented/image', Image, queue_size=10)
 
-        # ✅ أداة تحويل بين OpenCV و ROS Image
         self.bridge = CvBridge()
 
-        # ✅ تحميل نموذج DeepLabV3 المدرب مسبقًا
         self.model = deeplabv3_resnet50(pretrained=True).eval()
 
-        # ✅ إعداد عمليات تحويل الصورة قبل إدخالها للنموذج
         self.transform = T.Compose([
             T.ToPILImage(),
-            T.Resize((512, 512)),  # ضبط الحجم ليتناسب مع النموذج
+            T.Resize((512, 512)),  
             T.ToTensor(),
             T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
@@ -36,25 +31,20 @@ class SemanticSegmentationNode:
         rospy.loginfo("Semantic Segmentation Node Initialized!")
 
     def image_callback(self, msg):
-        """ يتم استدعاء هذه الدالة عند استقبال صورة جديدة """
+        
         try:
             rospy.loginfo("Received Image!")
 
-            # ✅ تحويل الصورة من ROS Image إلى OpenCV
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
-            # ✅ تحويل الصورة إلى تنسيق مناسب للنموذج
             input_tensor = self.transform(cv_image).unsqueeze(0)
 
-            # ✅ تمرير الصورة إلى النموذج والحصول على التوقعات
             with torch.no_grad():
                 output = self.model(input_tensor)['out'][0]
                 output_predictions = output.argmax(0).byte().cpu().numpy()
 
-            # ✅ تحويل نتيجة التجزئة إلى صورة ملونة
             segmented_image = self.visualize_segmentation(output_predictions)
 
-            # ✅ تحويل الصورة المعالجة إلى رسالة ROS ونشرها
             segmented_msg = self.bridge.cv2_to_imgmsg(segmented_image, encoding='bgr8')
             self.image_pub.publish(segmented_msg)
 
@@ -64,8 +54,7 @@ class SemanticSegmentationNode:
             rospy.logerr(f"Error processing image: {e}")
 
     def visualize_segmentation(self, mask):
-        """ تحويل نتائج التصنيف إلى صورة ملونة """
-        num_classes = 21  # عدد الفئات المدعومة في النموذج
+        num_classes = 21  
         colors = np.random.randint(0, 255, (num_classes, 3), dtype=np.uint8)  
         color_mask = colors[mask]
         return color_mask

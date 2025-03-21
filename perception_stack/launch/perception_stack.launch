@@ -1,0 +1,35 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="video_path" default="$(find perception_stack)/data/test_video.mp4" />
+  <arg name="frame_rate" default="30" />
+  <arg name="segmentation_model" default="fcn_resnet50" />
+  <arg name="device" default="cpu" />
+  
+  <!-- Camera Streamer Node -->
+  <node name="camera_streamer" pkg="perception_stack" type="camera_streamer.py" output="screen">
+    <param name="video_source" value="$(arg video_path)" />
+    <param name="frame_rate" value="$(arg frame_rate)" />
+  </node>
+  
+  <!-- Semantic Segmentation Node -->
+  <node name="semantic_segmentation" pkg="perception_stack" type="semantic_segmentation.py" output="screen">
+    <param name="model" value="$(arg segmentation_model)" />
+    <param name="device" value="$(arg device)" />
+    <param name="confidence_threshold" value="0.5" />
+  </node>
+  
+  <!-- Object Tracking Node -->
+  <node name="object_tracker" pkg="perception_stack" type="object_tracking.py" output="screen">
+    <param name="max_disappeared" value="30" />
+    <param name="min_object_area" value="500" />
+  </node>
+  
+  <!-- Optical Flow Node -->
+  <node name="optical_flow_estimator" pkg="perception_stack" type="optical_flow.py" output="screen" />
+  
+  <!-- Fusion Node -->
+  <node name="fusion_node" pkg="perception_stack" type="fusion_node.py" output="screen" />
+  
+  <!-- RViz for Visualization -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find perception_stack)/config/perception_visualization.rviz" />
+</launch>
